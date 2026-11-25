@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>CodeScribe | Aapka code, zimmedari hamari</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container" id="appContainer">
+    <section class="brand-section" aria-label="CodeScribe introduction">
+        <a class="logo" href="/" aria-label="CodeScribe home">
+            <span class="code-icon" aria-hidden="true">&lt;/&gt;</span>
+            <span class="logo-name">Code<span>Scribe</span></span>
+        </a>
+
+        <div class="brand-content">
+            <p class="brand-kicker">Aapka code, zimmedari hamari</p>
+            <h1>Code likhiye. <span>Scene samjhiye.</span></h1>
+            <p class="brand-description">
+                Python aur C++ ke liye vault aur static hints — sab ek jagah, no extra drama.
+            </p>
+            <div class="brand-language" aria-label="Supported languages">
+                <span>.py</span>
+                <span>.cpp</span>
+                <small>No execution. Sirf safe static analysis.</small>
+            </div>
+        </div>
+
+        <p class="brand-footnote">Clean code. Lowkey main-character energy.</p>
+    </section>
+
+    <section class="auth-section" aria-label="Account and code workspace">
+        <div class="auth-card" id="loginCard">
+            <div class="auth-heading">
+                <p class="section-label">CodeScribe account</p>
+                <h2>Workspace par wapas?</h2>
+                <p>Login kijiye; saved code ready hai.</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="input-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" autocomplete="email" placeholder="you@example.com" required>
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Password daalein" required>
+                </div>
+                <button type="submit" class="primary-button">Workspace kholiye</button>
+                <p class="message" id="loginMessage" role="status" aria-live="polite"></p>
+            </form>
+
+            <p class="switch-form">Pehli baar? <a href="#" id="showRegister">Account banaiye</a></p>
+        </div>
+
+        <div class="auth-card hidden" id="registerCard">
+            <div class="auth-heading">
+                <p class="section-label">Fresh start</p>
+                <h2>Naya account, scene sorted.</h2>
+                <p>Account banaiye aur code apne vault mein rakhiye.</p>
+            </div>
+
+            <form id="registerForm">
+                <div class="input-group">
+                    <label for="fullName">Naam</label>
+                    <input type="text" id="fullName" autocomplete="name" placeholder="Aapka naam" required>
+                </div>
+                <div class="input-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" autocomplete="email" placeholder="you@example.com" required>
+                </div>
+                <div class="input-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" autocomplete="new-password" minlength="8" placeholder="Kam se kam 8 characters" required>
+                </div>
+                <div class="input-group">
+                    <label for="confirmPassword">Password phir se</label>
+                    <input type="password" id="confirmPassword" autocomplete="new-password" minlength="8" placeholder="Password dobara daalein" required>
+                </div>
+                <button type="submit" class="primary-button">Account banaiye · let's go</button>
+                <p class="message" id="registerMessage" role="status" aria-live="polite"></p>
+            </form>
+
+            <p class="switch-form">Pehle se account hai? <a href="#" id="showLogin">Login kijiye</a></p>
+        </div>
+
+        <div class="workbench-card hidden" id="workbenchCard">
+            <header class="ide-topbar">
+                <a class="ide-brand" href="/" aria-label="CodeScribe workspace">
+                    <span class="ide-mark" aria-hidden="true">&lt;/&gt;</span>
+                    <span><strong>CodeScribe</strong><small>workspace</small></span>
+                </a>
+
+                <label class="top-control workspace-control" for="workspaceSelect">
+                    <span>Project</span>
+                    <select id="workspaceSelect" aria-label="Choose workspace"></select>
+                </label>
+
+                <label class="top-control filename-control" for="fileNameInput">
+                    <span>File</span>
+                    <input type="text" id="fileNameInput" value="main.py" maxlength="100" autocomplete="off" spellcheck="false">
+                </label>
+
+                <label class="top-control language-control" for="languageSelect">
+                    <span>Language</span>
+                    <select id="languageSelect" aria-label="Choose Python or C++">
+                        <option value="python">Python · .py</option>
+                        <option value="cpp">C++ · .cpp</option>
+                    </select>
+                </label>
+
+                <label class="upload-button" for="fileUploadInput">Quick import</label>
+                <input class="visually-hidden" type="file" id="fileUploadInput" accept=".py,.cpp,.h,.hpp">
+                <span class="save-state" id="saveState" aria-live="polite">Instant scan mode ready</span>
+                <button type="button" class="toolbar-button analyze-button" id="btnAnalyzeRaw">Instant scan</button>
+                <button type="button" class="toolbar-button save-button" id="btnSaveFile">Pack to vault</button>
+                <button type="button" class="logout-button" id="btnLogout">Logout</button>
+            </header>
+
+            <div class="ide-layout">
+                <aside class="vault-panel" aria-label="Workspace files">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Code vault</h2>
+                            <p id="vaultWorkspaceName">Aapka workspace</p>
+                        </div>
+                        <button type="button" class="icon-button" id="btnNewWorkspace" aria-label="Create a workspace" title="Naya workspace">+</button>
+                    </div>
+                    <div class="vault-actions">
+                        <span class="subheading">Files</span>
+                        <button type="button" class="text-button" id="btnNewFile">+ New file</button>
+                    </div>
+                    <div class="file-list" id="fileList" aria-live="polite"></div>
+                    <p class="vault-note">Apne code ko safe adda dein.</p>
+                </aside>
+
+                <main class="editor-panel">
+                    <div class="editor-toolbar">
+                        <div class="file-tab" aria-live="polite">
+                            <span class="file-extension" id="fileExtension">.py</span>
+                            <span id="fileTabName">main.py</span>
+                        </div>
+                        <span class="editor-state" id="editorDirty">Unsaved</span>
+                    </div>
+                    <div class="editor-frame">
+                        <div class="editor-gutter" id="editorGutter" aria-hidden="true"></div>
+                        <textarea id="codeEditor" class="code-editor" aria-label="Python or C++ code editor"
+                                  placeholder="Code yahan paste karein — phir instant scan, scene clear."
+                                  spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+                    </div>
+                    <footer class="editor-statusbar">
+                        <span id="editorStatusLanguage">Python</span>
+                        <span id="editorStatusLines">0 lines</span>
+                        <span id="editorStatusMessage">Static workspace · no code execution</span>
+                    </footer>
+                </main>
+
+                <aside class="coach-panel" aria-label="Static analysis coach">
+                    <div class="coach-heading">
+                        <div>
+                            <h2>Code ka scene</h2>
+                            <p>Kya scene hai? Static scan abhi batayega.</p>
+                        </div>
+                        <span class="static-badge">STATIC ONLY</span>
+                    </div>
+
+                    <p class="message" id="workbenchMessage" role="status" aria-live="polite"></p>
+
+                    <div class="coach-empty" id="analysisEmptyState">
+                        <span class="empty-mark" aria-hidden="true">?</span>
+                        <h3>Abhi coach ko code nahi mila</h3>
+                        <p>Editor mein code paste karein ya vault se file kholein. Phir instant scan — hints milenge, full solution nahi.</p>
+                    </div>
+
+                    <div class="analysis-results hidden" id="analysisResults">
+                        <div id="syntaxBanner" class="syntax-banner" role="status" aria-live="polite"></div>
+
+                        <section class="inspector-section">
+                            <h3>Code ka snapshot</h3>
+                            <dl class="metrics-grid">
+                                <div><dt>Lines</dt><dd id="metricSLOC">0</dd></div>
+                                <div><dt>Functions</dt><dd id="metricFunctions">0</dd></div>
+                                <div><dt>Loops</dt><dd id="metricLoops">0</dd></div>
+                                <div><dt>Branches</dt><dd id="metricConditionals">0</dd></div>
+                                <div><dt>Classes</dt><dd id="metricClasses">0</dd></div>
+                                <div><dt>Cyclomatic</dt><dd id="metricComplexity">1</dd></div>
+                                <div><dt>Recursion</dt><dd id="metricRecursions">0</dd></div>
+                            </dl>
+                        </section>
+
+                        <section class="inspector-section">
+                            <h3>Concepts jo mile <span>real code, real lines</span></h3>
+                            <ul class="concept-list" id="conceptList"></ul>
+                        </section>
+
+                        <section class="inspector-section">
+                            <h3>Complexity estimate</h3>
+                            <dl class="complexity-values">
+                                <div><dt>Time</dt><dd id="complexityTime"></dd></div>
+                                <div><dt>Space</dt><dd id="complexitySpace"></dd></div>
+                            </dl>
+                            <ul class="finding-list" id="complexitySpikes"></ul>
+                        </section>
+
+                        <section class="inspector-section">
+                            <h3>Next move</h3>
+                            <ul class="coach-list" id="suggestionList"></ul>
+                        </section>
+
+                        <section class="inspector-section">
+                            <h3>Hints, no spoilers</h3>
+                            <ul class="coach-list hint-list" id="hintList"></ul>
+                        </section>
+                        <p class="analysis-summary" id="analysisSummary"></p>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </section>
+</div>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
