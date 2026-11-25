@@ -21,6 +21,7 @@ The application is built around a modern Single Page Application (SPA) architect
 ---
 
 ## 2. System Architecture & Tech Stack
+[![Architecture diagram](https://gitdiagram.com/diagram-badge.svg)](https://gitdiagram.com/manikbharadwaj/codescribe?utm_source=readme&utm_medium=badge)
 
 ```
 CODESCRIBE/
