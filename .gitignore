@@ -1,0 +1,51 @@
+# Python bytecode and test/type-check caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local Python environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local secrets and Flask instance data
+.env
+.env.*
+!.env.example
+.flaskenv
+/instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local editor and assistant settings
+.vscode/
+.idea/
+/.claude/
+
+# Generated output and transient files
+build/
+dist/
+*.egg-info/
+*.log
+*.tmp
+*.bak
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Legacy, unused root-level UI copies (the Flask app serves static/ and templates/)
+/index.html
+/script.js
+/style.css
+
+# Old copywriting artifact; not used by the app
+/proposed_copy.json
