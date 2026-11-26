@@ -24,7 +24,7 @@
             <div class="brand-language" aria-label="Supported languages">
                 <span>.py</span>
                 <span>.cpp</span>
-                <small>No execution. Sirf safe static analysis.</small>
+                <small>Python aur C++ ke liye isolated sandbox runs.</small>
             </div>
         </div>
 
@@ -88,6 +88,8 @@
 
         <div class="workbench-card hidden" id="workbenchCard">
             <header class="ide-topbar">
+                <button type="button" class="icon-button menu-button" id="btnToggleVault"
+                        aria-label="Open workspace files" aria-controls="vaultPanel" aria-expanded="false">☰</button>
                 <a class="ide-brand" href="/" aria-label="CodeScribe workspace">
                     <span class="ide-mark" aria-hidden="true">&lt;/&gt;</span>
                     <span><strong>CodeScribe</strong><small>workspace</small></span>
@@ -113,14 +115,31 @@
 
                 <label class="upload-button" for="fileUploadInput">Quick import</label>
                 <input class="visually-hidden" type="file" id="fileUploadInput" accept=".py,.cpp,.h,.hpp">
-                <span class="save-state" id="saveState" aria-live="polite">Instant scan mode ready</span>
+                <span class="save-state" id="saveState" aria-live="polite">Workspace ready</span>
+                <button type="button" class="toolbar-button run-button" id="btnRunCode" title="Run code (Ctrl/Cmd + Enter)">Run</button>
                 <button type="button" class="toolbar-button analyze-button" id="btnAnalyzeRaw">Instant scan</button>
                 <button type="button" class="toolbar-button save-button" id="btnSaveFile">Pack to vault</button>
-                <button type="button" class="logout-button" id="btnLogout">Logout</button>
+                <div class="profile-menu" id="profileMenu">
+                    <button type="button" class="profile-trigger" id="btnProfileMenu"
+                            aria-label="Open profile menu" aria-haspopup="true" aria-expanded="false">
+                        <span class="profile-avatar" id="profileAvatar" aria-hidden="true">U</span>
+                        <span class="profile-trigger-name" id="profileTriggerName">Profile</span>
+                    </button>
+                    <div class="profile-dropdown" id="profileDropdown" role="menu" aria-label="Profile menu">
+                        <div class="profile-details">
+                            <strong id="profileName">CodeScribe user</strong>
+                            <span id="profileEmail"></span>
+                        </div>
+                        <button type="button" class="profile-menu-item" id="btnSwitchWorkspace" role="menuitem">Switch workspace</button>
+                        <button type="button" class="logout-button profile-logout" id="btnLogout" role="menuitem">Logout</button>
+                    </div>
+                </div>
             </header>
 
             <div class="ide-layout">
-                <aside class="vault-panel" aria-label="Workspace files">
+                <button type="button" class="drawer-backdrop" id="vaultBackdrop"
+                        aria-label="Close workspace files" aria-hidden="true" tabindex="-1"></button>
+                <aside class="vault-panel" id="vaultPanel" aria-label="Workspace files">
                     <div class="panel-heading">
                         <div>
                             <h2>Code vault</h2>
@@ -153,8 +172,31 @@
                     <footer class="editor-statusbar">
                         <span id="editorStatusLanguage">Python</span>
                         <span id="editorStatusLines">0 lines</span>
-                        <span id="editorStatusMessage">Static workspace · no code execution</span>
+                        <span id="editorStatusMessage">Python &amp; C++ sandbox runner</span>
                     </footer>
+                    <section class="run-console" aria-label="Code execution console">
+                        <div class="run-console-heading">
+                            <h2>Run console</h2>
+                            <span id="runStatus" class="run-status" data-status="idle" role="status" aria-live="polite">Ready</span>
+                            <span id="runTime" class="run-time"></span>
+                        </div>
+                        <div class="run-console-grid">
+                            <label class="run-pane" for="runStdin">
+                                <span>Input · stdin</span>
+                                <textarea id="runStdin" spellcheck="false" placeholder="Optional program input"></textarea>
+                            </label>
+                            <div class="run-output-column">
+                                <section class="run-pane">
+                                    <h3>Output · stdout</h3>
+                                    <pre id="runStdout" aria-live="polite"></pre>
+                                </section>
+                                <section class="run-pane run-errors">
+                                    <h3>Errors · stderr</h3>
+                                    <pre id="runStderr" aria-live="polite"></pre>
+                                </section>
+                            </div>
+                        </div>
+                    </section>
                 </main>
 
                 <aside class="coach-panel" aria-label="Static analysis coach">
@@ -163,7 +205,7 @@
                             <h2>Code ka scene</h2>
                             <p>Kya scene hai? Static scan abhi batayega.</p>
                         </div>
-                        <span class="static-badge">STATIC ONLY</span>
+                        <span class="static-badge">STATIC SCAN</span>
                     </div>
 
                     <p class="message" id="workbenchMessage" role="status" aria-live="polite"></p>

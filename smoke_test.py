@@ -6,8 +6,10 @@ Executes end-to-end tests across all 5 backend blocks using Flask's test client.
 import json
 import os
 import sys
+from unittest.mock import patch
 from app import create_app
 from models import db
+from runner import ExecutionResult, RunnerUnavailable, _capture_process
 
 
 def run_smoke_tests():
@@ -58,6 +60,8 @@ def run_smoke_tests():
     # 1. Unauthenticated check
     res = client.get("/api/auth/me")
     assert_test("Unauthenticated /me returns 401", res.status_code == 401)
+    res = client.post("/api/run", json={"language": "python", "code": "print(1)"})
+    assert_test("Unauthenticated code execution returns 401", res.status_code == 401)
 
     # 2. Register User 1
     alice_payload = {
@@ -114,6 +118,49 @@ def run_smoke_tests():
     # Log back in as Alice
     client.post("/api/auth/logout")
     client.post("/api/auth/login", json={"email": "alice@example.com", "password": "SecurePassword123"})
+
+    # Isolated execution route validation and response contract
+    res = client.post("/api/run", json={"language": "ruby", "code": "puts 1"})
+    assert_test("Execution rejects unsupported languages", res.status_code == 400)
+    res = client.post("/api/run", json={"language": "python", "code": ["not", "text"]})
+    assert_test("Execution rejects non-text source", res.status_code == 400)
+    with patch("app.run_code", return_value=ExecutionResult("Success", "42\n", "", 12)) as mock_runner:
+        res = client.post(
+            "/api/run",
+            json={"language": "python", "code": "print(42)", "stdin": ""}
+        )
+    run_result = res.get_json()
+    assert_test("Execution route returns the documented result shape",
+                res.status_code == 200 and run_result == {
+                    "status": "Success",
+                    "stdout": "42\n",
+                    "stderr": "",
+                    "execution_time_ms": 12
+                })
+    assert_test("Execution route passes only the requested language, code, and stdin",
+                mock_runner.call_args.args == ("python", "print(42)", ""))
+    with patch("app.run_code", side_effect=RunnerUnavailable("Docker CLI is not installed.")):
+        res = client.post("/api/run", json={"language": "cpp", "code": "int main() {}"})
+    assert_test("Execution fails closed when the Docker sandbox is unavailable",
+                res.status_code == 503
+                and res.get_json()["error"] == "Docker CLI is not installed.")
+    output_result = _capture_process(
+        [sys.executable, "-c",
+         "import sys; sys.stdout.write('o' * 70000); sys.stderr.write('e' * 70000)"],
+        "",
+        5
+    )
+    assert_test("Runner capture caps stdout and stderr independently",
+                len(output_result[1].encode("utf-8")) <= 64 * 1024
+                and len(output_result[2].encode("utf-8")) <= 64 * 1024
+                and output_result[1].endswith("[output truncated]")
+                and output_result[2].endswith("[output truncated]"))
+    timeout_result = _capture_process(
+        [sys.executable, "-c", "import time; time.sleep(2)"],
+        "",
+        0.1
+    )
+    assert_test("Runner capture reports timed-out processes", timeout_result[3] is True)
 
     # 1. Valid Python Code File & AST Analysis
     python_valid_code = """

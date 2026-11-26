@@ -33,7 +33,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const suggestionList = document.getElementById("suggestionList");
     const hintList = document.getElementById("hintList");
     const btnAnalyzeRaw = document.getElementById("btnAnalyzeRaw");
+    const btnRunCode = document.getElementById("btnRunCode");
     const btnSaveFile = document.getElementById("btnSaveFile");
+    const runStdin = document.getElementById("runStdin");
+    const runStatus = document.getElementById("runStatus");
+    const runTime = document.getElementById("runTime");
+    const runStdout = document.getElementById("runStdout");
+    const runStderr = document.getElementById("runStderr");
+    const profileMenu = document.getElementById("profileMenu");
+    const profileTrigger = document.getElementById("btnProfileMenu");
+    const profileDropdown = document.getElementById("profileDropdown");
+    const ideLayout = document.querySelector(".ide-layout");
+    const vaultBackdrop = document.getElementById("vaultBackdrop");
+    const vaultToggle = document.getElementById("btnToggleVault");
 
     let activeWorkspaceId = null;
     let activeFileId = null;
@@ -56,7 +68,35 @@ document.addEventListener("DOMContentLoaded", () => {
         appContainer.classList.toggle("workbench-active", card === workbenchCard);
     }
 
+    function updateProfile(user) {
+        const fullName = user && user.full_name ? user.full_name : "CodeScribe user";
+        const email = user && user.email ? user.email : "";
+        document.getElementById("profileName").textContent = fullName;
+        document.getElementById("profileEmail").textContent = email;
+        document.getElementById("profileTriggerName").textContent = fullName.split(/\s+/)[0];
+        document.getElementById("profileAvatar").textContent = fullName.trim().charAt(0).toUpperCase() || "U";
+        profileTrigger.setAttribute("aria-label", `Open profile menu for ${fullName}`);
+    }
+
+    function closeProfileMenu() {
+        profileDropdown.classList.remove("open");
+        profileTrigger.setAttribute("aria-expanded", "false");
+    }
+
+    function setDrawerOpen(open) {
+        ideLayout.classList.toggle("drawer-open", open);
+        vaultToggle.setAttribute("aria-expanded", String(open));
+        vaultToggle.setAttribute("aria-label", open ? "Close workspace files" : "Open workspace files");
+        vaultBackdrop.setAttribute("aria-hidden", String(!open));
+    }
+
     function buddyError(message) {
+        if (message.startsWith("Docker CLI is not installed.")
+            || message.startsWith("Docker daemon is unavailable.")
+            || message.startsWith("Docker did not respond")
+            || message.startsWith("Runner image '")) {
+            return message;
+        }
         const known = {
             "Invalid email or password.": "Email ya password match nahi hua. Dobara check karke try karein.",
             "Authentication required.": "Session expire ho gaya. Login karke continue karein.",
@@ -65,6 +105,53 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         if (known[message]) return known[message];
         return `Kuch gadbad hui: ${message || "Request complete nahi hui."} Thodi der baad dobara try karein.`;
+    }
+
+    async function runCode() {
+        if (btnRunCode.disabled) return;
+        const source = codeEditor.value;
+        if (!source.trim()) {
+            runStatus.textContent = "Code required";
+            runStatus.dataset.status = "error";
+            runStderr.textContent = "Paste Python or C++ code in the editor before running.";
+            runStdout.textContent = "";
+            runTime.textContent = "";
+            return;
+        }
+
+        const originalLabel = btnRunCode.textContent;
+        btnRunCode.disabled = true;
+        btnRunCode.textContent = "Running…";
+        runStatus.textContent = "Running";
+        runStatus.dataset.status = "running";
+        runStderr.textContent = "";
+        runStdout.textContent = "";
+        runTime.textContent = "";
+
+        try {
+            const result = await requestJson("/api/run", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    language: languageSelect.value,
+                    code: source,
+                    stdin: runStdin.value
+                })
+            }, 30000);
+            runStatus.textContent = result.status;
+            runStatus.dataset.status = result.status === "Success" ? "success"
+                : result.status === "Time Limit Exceeded" ? "timeout" : "error";
+            runStdout.textContent = result.stdout || "";
+            runStderr.textContent = result.stderr || "";
+            runTime.textContent = `${result.execution_time_ms} ms`;
+        } catch (error) {
+            runStatus.textContent = "Run unavailable";
+            runStatus.dataset.status = "error";
+            runStderr.textContent = error.message;
+        } finally {
+            btnRunCode.disabled = false;
+            btnRunCode.textContent = originalLabel;
+        }
     }
 
     function setMessage(element, text, isError) {
@@ -79,10 +166,10 @@ document.addEventListener("DOMContentLoaded", () => {
         element.className = "message";
     }
 
-    async function requestJson(url, options) {
+    async function requestJson(url, options, timeoutMs = 15000) {
         let response;
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 15000);
+        const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
         try {
             response = await fetch(url, { ...options, signal: controller.signal });
         } catch (error) {
@@ -378,7 +465,10 @@ document.addEventListener("DOMContentLoaded", () => {
             open.className = `file-open${file.id === activeFileId ? " active" : ""}`;
             open.textContent = file.name;
             open.title = `Open ${file.name}`;
-            open.addEventListener("click", () => loadFile(file.id));
+            open.addEventListener("click", () => {
+                setDrawerOpen(false);
+                loadFile(file.id);
+            });
             const remove = document.createElement("button");
             remove.type = "button";
             remove.className = "file-delete";
@@ -542,6 +632,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     password: document.getElementById("loginPassword").value
                 })
             });
+            updateProfile(result.user);
             showCard(workbenchCard);
             await loadWorkspaces();
             setMessage(workbenchMessage, `Welcome back, ${result.user.full_name}. Workspace ready — next kya scene?`, false);
@@ -570,6 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     confirm_password: confirmation
                 })
             });
+            updateProfile(result.user);
             showCard(workbenchCard);
             await loadWorkspaces(result.default_workspace_id);
             setMessage(workbenchMessage, "Account set. Naya adda ready — grind mode on.", false);
@@ -583,6 +675,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             await requestJson("/api/auth/logout", { method: "POST" });
             codeEditor.value = "";
+            closeProfileMenu();
             showCard(loginCard);
             setMessage(loginMessage, "Logout ho gaya. Milte hain phir.", false);
         } catch (error) {
@@ -622,8 +715,31 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btnNewFile").addEventListener("click", () => {
         if (canDiscardChanges()) resetEditor();
     });
+    btnRunCode.addEventListener("click", runCode);
     btnAnalyzeRaw.addEventListener("click", () => analyzeCode(true));
     btnSaveFile.addEventListener("click", saveFile);
+    vaultToggle.addEventListener("click", () => {
+        setDrawerOpen(!ideLayout.classList.contains("drawer-open"));
+    });
+    vaultBackdrop.addEventListener("click", () => setDrawerOpen(false));
+    profileTrigger.addEventListener("click", () => {
+        const open = !profileDropdown.classList.contains("open");
+        profileDropdown.classList.toggle("open", open);
+        profileTrigger.setAttribute("aria-expanded", String(open));
+    });
+    document.getElementById("btnSwitchWorkspace").addEventListener("click", () => {
+        closeProfileMenu();
+        workspaceSelect.focus();
+    });
+    document.addEventListener("pointerdown", event => {
+        if (!profileMenu.contains(event.target)) closeProfileMenu();
+    });
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            setDrawerOpen(false);
+            closeProfileMenu();
+        }
+    });
 
     languageSelect.addEventListener("change", () => {
         const oldExtension = /\.(py|cpp|h|hpp)$/i;
@@ -695,7 +811,7 @@ document.addEventListener("DOMContentLoaded", () => {
             markDirty();
         } else if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
             event.preventDefault();
-            analyzeCode(true);
+            runCode();
         } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
             event.preventDefault();
             saveFile();
@@ -706,6 +822,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const result = await requestJson("/api/auth/me");
             if (result.authenticated) {
+                updateProfile(result.user);
                 showCard(workbenchCard);
                 await loadWorkspaces();
             } else {

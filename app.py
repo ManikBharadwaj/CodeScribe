@@ -19,6 +19,7 @@ from werkzeug.utils import secure_filename
 
 from analyzer import analyze_code
 from models import CodeFile, User, Workspace, db
+from runner import RunnerBusy, RunnerUnavailable, run_code
 
 # Allowed code file extensions
 ALLOWED_EXTENSIONS = {"py", "cpp", "h", "hpp"}
@@ -519,6 +520,46 @@ def create_app():
 
         analysis_result = analyze_code(code_string, language=language)
         return jsonify(analysis_result), 200
+
+    # -------------------------------------------------------------------
+    # Block 5: Isolated Code Execution
+    # -------------------------------------------------------------------
+    @app.route("/api/run", methods=["POST"])
+    def run_source_code():
+        """Runs a Python or C++ submission in the configured Docker sandbox."""
+        user = get_current_user()
+        if not user:
+            return jsonify({"error": "Authentication required."}), 401
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "Request body must be a JSON object."}), 400
+
+        language = data.get("language")
+        code = data.get("code")
+        stdin = data.get("stdin", "")
+        if language not in ("python", "cpp"):
+            return jsonify({"error": "Unsupported language. Use Python or C++."}), 400
+        if not isinstance(code, str):
+            return jsonify({"error": "Code content must be text."}), 400
+        if not isinstance(stdin, str):
+            return jsonify({"error": "Standard input must be text."}), 400
+
+        try:
+            result = run_code(language, code, stdin)
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        except RunnerBusy as error:
+            return jsonify({"error": str(error)}), 429
+        except RunnerUnavailable as error:
+            return jsonify({"error": str(error)}), 503
+
+        return jsonify({
+            "status": result.status,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "execution_time_ms": result.execution_time_ms
+        }), 200
 
     return app
 

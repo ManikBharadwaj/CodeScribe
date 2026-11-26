@@ -14,7 +14,7 @@
 ---
 
 ## 1. Project Overview & Objectives
-**CodeScribe** is a web-based code management and static analysis platform designed to help student developers and engineers organize source code into isolated workspaces, perform static code analysis safely without runtime execution, and track code quality metrics (such as Cyclomatic Complexity, lines of code, function counts, and control structures).
+**CodeScribe** is a web-based code management and analysis platform designed to help student developers and engineers organize source code into workspaces, perform static code analysis, run Python and C++ in a constrained Docker sandbox, and track code quality metrics (such as Cyclomatic Complexity, lines of code, function counts, and control structures).
 
 The application is built around a modern Single Page Application (SPA) architecture utilizing a Flask RESTful backend paired with a responsive dark-mode frontend, secure user authentication, relational database storage via SQLAlchemy, and built-in Abstract Syntax Tree (AST) parsing for Python and structural token analysis for C++.
 
@@ -26,6 +26,8 @@ The application is built around a modern Single Page Application (SPA) architect
 ```
 CODESCRIBE/
 ├── app.py              # Flask server, REST API endpoints, session auth & error handling
+├── runner.py           # Resource-limited Docker execution service for Python/C++
+├── Dockerfile.runner   # Image used by the isolated execution service
 ├── models.py           # SQLAlchemy ORM models (User, Workspace, CodeFile)
 ├── analyzer.py         # Static analysis engine (Python AST NodeVisitor & C++ tokenizer)
 ├── requirements.txt    # Python dependencies (Flask, Flask-SQLAlchemy, Werkzeug)
@@ -44,6 +46,7 @@ CODESCRIBE/
 * **Database & ORM:** SQLite / PostgreSQL compatible via Flask-SQLAlchemy 3.1
 * **Security & Cryptography:** Werkzeug security utilities (PBKDF2-HMAC-SHA256 password hashing, secure session cookies)
 * **Static Analysis:** Python built-in `ast` module (`NodeVisitor` design pattern) & Regular Expression structural parsing for C++
+* **Execution:** Per-run Docker containers, no network, non-root user, memory/CPU/process limits
 * **Frontend:** HTML5, CSS3 (CSS Grid, responsive media queries), Vanilla JavaScript (ES6+ asynchronous Fetch API)
 
 ---
@@ -61,7 +64,7 @@ CODESCRIBE/
 3. **`CodeFile` Model:** Stores source code files (`id`, `name`, `language`, `content`, `workspace_id` [FK], `created_at`).
 
 ### C. Static Code Analysis Engine (`analyzer.py`)
-* **Python AST Analysis:** Rather than executing untrusted user code via dangerous constructs like `exec()` or subprocesses, CodeScribe parses Python source code into an Abstract Syntax Tree using `ast.parse()`. A custom `ast.NodeVisitor` subclass (`PythonASTVisitor`) traverses nodes to count:
+* **Python AST Analysis:** The analysis path parses Python source code into an Abstract Syntax Tree using `ast.parse()` and never executes it. A custom `ast.NodeVisitor` subclass (`PythonASTVisitor`) traverses nodes to count:
   * Functions (`ast.FunctionDef`, `ast.AsyncFunctionDef`)
   * Loops (`ast.For`, `ast.AsyncFor`, `ast.While`)
   * Conditionals (`ast.If`, `ast.IfExp`)
@@ -69,6 +72,12 @@ CODESCRIBE/
   * **Cyclomatic Complexity:** Computed deterministically as $1 + \text{decision points}$ (branching nodes and boolean operators).
   * **Syntax Validation:** Catches `SyntaxError` exceptions gracefully, reporting exact line numbers, character offsets, and snippets.
 * **C++ Structural Analysis:** Employs regex-based pattern matching to inspect C++ source code files for function signatures, control loops (`for`, `while`, `do`), conditional branching (`if`, `switch`), and header inclusions (`#include`).
+
+### D. Sandboxed Code Execution (`runner.py`)
+* **Supported languages:** Python and C++17 only.
+* **Isolation:** Each run uses a disposable Docker container with networking disabled, a read-only source mount, a non-root UID, dropped Linux capabilities, and memory, CPU, and process limits. The container is removed after execution.
+* **Limits:** Execution is capped at 5 seconds; C++ compilation is capped at 10 seconds. Standard input is limited to 64KB and captured output to 64KB per stream.
+* **Fail-closed:** The app returns an explicit unavailable response if Docker or the configured runner image is missing; submitted programs are never run directly on the Flask host.
 
 ---
 
@@ -89,27 +98,35 @@ Install required Python packages via `pip`:
 python -m pip install -r requirements.txt
 ```
 
-### Step 3: Run Automated Smoke Tests
+### Step 3: Prepare the execution sandbox
+Install and start Docker, then build the dedicated runner image:
+```bash
+docker build -f Dockerfile.runner -t codescribe-runner:latest .
+```
+The Flask process needs access to a Docker daemon. Prefer a rootless daemon and keep it isolated from other workloads. `CODESCRIBE_RUNNER_IMAGE` can select a different prebuilt image; there is no host-execution fallback.
+
+### Step 4: Run Automated Smoke Tests
 Verify all database models, authentication flows, ownership checks, and AST analysis rules by running the integration test suite:
 ```bash
 python smoke_test.py
 ```
-*(All 30 automated integration tests pass successfully with 100% coverage).*
+The smoke suite covers the existing APIs and the authenticated execution endpoint; it does not require Docker because execution is mocked in these tests.
 
-### Step 4: Run the Flask Development Server
+### Step 5: Run the Flask Development Server
 Start the application server locally:
 ```bash
 python app.py
 ```
 
-### Step 5: Access the Application
+### Step 6: Access the Application
 Open your web browser and navigate to:
 ```text
 http://127.0.0.1:5000
 ```
 * Register a new student/developer account.
 * Use the **Code Workbench** to write or upload Python / C++ source files.
-* Click **Analyze AST** to inspect real-time complexity metrics and syntax validation reports.
+* Click **Run** (or press Ctrl/Cmd+Enter) to execute code in the sandbox; use the input/output console for stdin, stdout, errors, and timing.
+* Click **Instant scan** to inspect complexity metrics and static syntax/structure findings independently of execution.
 
 ---
 
@@ -120,7 +137,7 @@ http://127.0.0.1:5000
 * **C++ Analysis Scope:** C++ analysis relies on structural token scanning rather than a full C++ Clang AST parser.
 
 ### Security Guarantees
-* **No Code Execution:** Source code is inspected purely via static analysis (`ast.parse`); user code is never compiled or executed on the server, eliminating Remote Code Execution (RCE) vectors.
+* **Sandboxed Execution:** User code runs only in the configured Docker container with network access disabled and resource limits. It is not executed directly by Flask on the host. Docker containers share the host kernel and are not equivalent to a VM; keep Docker and the host patched, prefer rootless Docker, and add deployment-level rate limiting and monitoring before exposing the service publicly.
 * **SQL Injection Prevention:** All database queries are managed exclusively through SQLAlchemy ORM parameterization.
 * **Access Control:** Strict session checks and foreign-key ownership enforcement prevent IDOR vulnerabilities.
 
